@@ -2,9 +2,10 @@ import sqlite3
 import streamlit as st
 from streamlit import column_config
 import pandas as pd
+from db_path import DB_PATH
 
 def read_tasks():
-    conn = sqlite3.connect('tasks.db')
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     try:
         # Use pandas to read the SQL query directly into a DataFrame
         tasks_df = pd.read_sql_query("SELECT * FROM tasks ORDER BY creation_date DESC", conn)
@@ -15,9 +16,6 @@ def read_tasks():
         # Convert date-like strings to actual datetime objects for the data editor
         tasks_df['creation_date'] = pd.to_datetime(tasks_df['creation_date'])
         tasks_df['completed_date'] = pd.to_datetime(tasks_df['completed_date'], errors='coerce') # 'coerce' handles NULLs gracefully
-
-        # fillna de completed_date con no completada
-        tasks_df.completed_date.fillna('Aún no completada', inplace=True)
         
         # hide task_id column
         tasks_df.drop('task_id', axis=1, inplace=True)
@@ -40,10 +38,10 @@ cfg = {i: column_config.Column(width=None) for i in cfg.keys()}
 if not tasks_df.empty:
     # Mostrar la tabla
     st.dataframe(tasks_df,
-      column_config=cfg,
-      use_container_width=True,  # Auto-ajuste al contenedor (default)
-      hide_index=True
-  )
+    column_config=cfg,
+    width='content',  # Auto-ajuste al contenedor (default)
+    hide_index=True
+)
     #st.write(tasks_df)
     # edited_df = st.data_editor(
     #     tasks_df,
