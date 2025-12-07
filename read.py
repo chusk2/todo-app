@@ -4,12 +4,17 @@ import pandas as pd
 
 def read_tasks():
     conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
     try:
         # Use pandas to read the SQL query directly into a DataFrame
         tasks_df = pd.read_sql_query("SELECT * FROM tasks ORDER BY creation_date DESC", conn)
+        
+        # --- FIX: Convert columns to the correct data types ---
         # Convert the 'completed' column from 0/1 to boolean True/False
         tasks_df['completed'] = tasks_df['completed'].astype(bool)
+        # Convert date-like strings to actual datetime objects for the data editor
+        tasks_df['creation_date'] = pd.to_datetime(tasks_df['creation_date'])
+        tasks_df['completed_date'] = pd.to_datetime(tasks_df['completed_date'], errors='coerce') # 'coerce' handles NULLs gracefully
+        
         return tasks_df
     except Exception as e:
         print(e)
