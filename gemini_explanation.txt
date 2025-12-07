@@ -1,0 +1,136 @@
+Of course! I'd be happy to help you with your Streamlit To-Do app. It's a great project. Let's break down your questions.
+
+1. Why the dataframe appears twice
+You're seeing two dataframes because your code explicitly tells Streamlit to draw one, and then conditionally draw a second one.
+
+The First Dataframe (st.data_editor): This is the main, interactive table that is always displayed when you open the "Remove" page. It's created by this line:
+
+python
+df_edited = st.data_editor(...)
+The Second Dataframe (st.dataframe): This one only appears after you click the "Eliminar Tareas Seleccionadas" button. It's created by the st.dataframe(df_filtered, ...) call inside your button's logic.
+
+python
+ Show full code block 
+# /home/daniel/code/todo-app/remove.py
+if st.button("Eliminar Tareas Seleccionadas"):
+    # ...
+    if not df_selected.empty:
+        # ...
+        # This line draws the second, static dataframe
+        st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+
+        st.rerun() # This refreshes the page
+The st.rerun() at the end immediately re-runs the script from the top, which causes the original st.data_editor to be drawn again. The second dataframe only flashes on the screen for a moment. The intention was likely to show the result of the deletion, but a better approach is to perform the deletion and let st.rerun() refresh the st.data_editor with the updated data from the database.
+
+2. Why you can't select (edit) the dataframe
+The issue here is a subtle one related to how Streamlit handles state and data loading. You are unable to edit the checkboxes because the data is being reloaded on every interaction.
+
+Your load_tasks() function fetches data directly from the database every time it's called. When you click a checkbox in the st.data_editor, Streamlit re-runs the script to process the change. However, the first thing that happens in the script is another call to load_tasks(), which overwrites your selection with the original, unchanged data from the database.
+
+To fix this, you should use Streamlit's caching mechanism (@st.cache_data). This tells Streamlit to be smarter about when to re-fetch the data, allowing it to preserve the edits you make in the UI.
+
+Code Improvements
+Here are the suggested changes to fix both issues. I'll implement the actual database deletion logic that was commented out and fix the display problems.
+
+remove.py
+-29
++24
+ Show full code block 
+import pandas as pd
+import sqlite3
+
+# Función para cargar tareas (reemplaza con tu lógica real de DB/CRUD)
+#@st.cache_data
+@st.cache_data
+def load_tasks():
+    
+    conn = sqlite3.connect('tasks.db')
+    cursor = conn.cursor()
+
+    df = pd.read_sql_query('select * from tasks order by creation_date', conn)
+
+    # Agregar columna bool para selección (inicialmente False)
+    cols = list(df.columns)
+    try:
+        df = pd.read_sql_query('SELECT task_id, task, creation_date FROM tasks ORDER BY creation_date DESC', conn)
+    finally:
+        conn.close()
+    df['Seleccionar'] = False
+    df[['Seleccionar'] + cols]
+
+    # Reorder columns to have 'Seleccionar' first
+    df = df[['Seleccionar', 'task_id', 'task', 'creation_date']]
+    return df
+
+# Cargar datos
+        "Seleccionar para eliminar",
+        help="Marca esta casilla si quieres eliminar la tarea",
+        default=False,
+    ),
+    "task": st.column_config.TextColumn("Tarea"),
+    "task_id" : None
+    "task": st.column_config.TextColumn("Tarea", disabled=True),
+    "creation_date": st.column_config.TextColumn("Fecha de Creación", disabled=True),
+    "task_id" : None # Hide the task_id column
+}
+
+# Mostrar y editar la tabla
+df_edited = st.data_editor(
+    load_tasks(),
+    column_config=column_config,
+    num_rows="fixed",  # Evita agregar filas nuevas; usa "dynamic" si quieres editar tamaños
+    use_container_width=True,
+    hide_index=True,
+    key="tabla_tareas"  # Ayuda a persistir cambios en session state
+)
+
+# Botón para procesar eliminación
+if st.button("Eliminar Tareas Seleccionadas"):
+    # Filtrar filas donde 'Seleccionar' es True
+    df_selected = df_edited[df_edited['Seleccionar'] == True]
+
+    if not df_selected.empty:
+        # Extraer task_id de las filas seleccionadas
+        selected_tasks_id = df_selected['task_id'].tolist()
+
+        # Aquí va tu lógica real de eliminación (por ejemplo, consulta a DB)
+        # for task_id in task_ids_a_borrar:
+        #     eliminar_tarea(task_id)  # Tu función CRUD
+        conn = sqlite3.connect('tasks.db')
+        cursor = conn.cursor()
+        try:
+            # Use a parameterized query to prevent SQL injection
+            placeholders = ','.join('?' for _ in selected_tasks_id)
+            query = f"DELETE FROM tasks WHERE task_id IN ({placeholders})"
+            cursor.execute(query, selected_tasks_id)
+            conn.commit()
+            st.success(f"Se eliminaron {len(selected_tasks_id)} tarea(s) exitosamente.")
+            st.cache_data.clear() # Clear the cache to force a data reload
+        finally:
+            conn.close()
+
+        st.success(f"Se han marcado para eliminar {len(selected_tasks_id)}")
+
+        # Opcional: Resetear las selecciones y refrescar (eliminar las filas seleccionadas de la vista)
+        df_edited.loc[df_selected.index, 'Seleccionar'] = False
+        # Para simular eliminación visual, filtra el DF (en producción, recarga desde DB)
+        df_filtered = df_edited[~df_edited['Seleccionar']]
+        st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+
+        st.rerun()  # Refresca la interfaz para actualizar la vista
+        st.rerun()
+    else:
+        st.warning("No has seleccionado ninguna tarea. Marca las casillas deseadas.")
+
+if not df_edited.empty:
+    selected_tasks_count = (df_edited['Seleccionar'] == True).sum()
+    st.info(f"Tareas seleccionadas para eliminar: {selected_tasks_count}")
+
+Summary of Changes:
+Enabled Caching: Added @st.cache_data to load_tasks() to prevent UI edits from being lost.
+Implemented Deletion: Added the SQL DELETE logic to the button's code block to actually remove tasks from the tasks.db database.
+Cleared Cache: After a successful deletion, st.cache_data.clear() is called. This is crucial; it tells Streamlit to discard the old, cached data and re-run load_tasks() to get the fresh data from the database on the next run.
+Removed Second Dataframe: I removed the st.dataframe(df_filtered, ...) call to prevent the table from appearing twice. The st.rerun() is sufficient to refresh the page with the updated data.
+Improved UI: I disabled editing for the task and creation_date columns in the data_editor since this page is only for deletion. This provides a cleaner user experience.
+Code Cleanup: Reordered columns for better readability and simplified the data loading logic.
+With these changes, your "Remove" page should now function as expected! Let me know if you have any other questions.
