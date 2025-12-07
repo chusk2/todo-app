@@ -4,40 +4,25 @@ import pandas as pd
 
 def read_tasks():
     conn = sqlite3.connect('tasks.db')
-    cursor = conn.cursor()
-    success = False
-    read_query = '''
-    select * from tasks
-    '''
     try:
-        tasks_df = pd.read_sql_query(read_query, conn)
-        tasks_df = tasks_df[['task', 'creation_date',
-                            'completed', 'completed_date']]
-        tasks_df['completed'] = tasks_df.completed.astype('str')
-        tasks_df['completed'] = tasks_df.completed.apply(
-            lambda x: '❌' if x == '0' else '✅')
-    
-        success = True
         # Use pandas to read the SQL query directly into a DataFrame
         tasks_df = pd.read_sql_query("SELECT * FROM tasks ORDER BY creation_date DESC", conn)
+        
+        # --- FIX: Convert columns to the correct data types ---
         # Convert the 'completed' column from 0/1 to boolean True/False
         tasks_df['completed'] = tasks_df['completed'].astype(bool)
+        # Convert date-like strings to actual datetime objects for the data editor
+        tasks_df['creation_date'] = pd.to_datetime(tasks_df['creation_date'])
+        tasks_df['completed_date'] = pd.to_datetime(tasks_df['completed_date'], errors='coerce') # 'coerce' handles NULLs gracefully
+        
         return tasks_df
     except Exception as e:
         print(e)
-
         st.warning('Failed to read tasks from the database.')
         return pd.DataFrame() # Return an empty DataFrame on error
     finally:
         conn.close()
-        if not success:
-            st.warning('Read operation failed!')
-            return
-        return tasks_df
-    
-st.write('Your list of tasks')
 
-st.write(read_tasks())
 st.header('Your List of Tasks')
 
 tasks_df = read_tasks()
