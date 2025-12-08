@@ -10,6 +10,8 @@ if not 'select_all_state' in st.session_state:
 if 'data_version' not in st.session_state:
     st.session_state['data_version'] = 0
 
+st.toggle('Debug Mode', key='debug_mode')
+
 @st.cache_data
 def load_tasks_from_db(data_version):
     # This function will now raise an exception on failure, which is handled outside.
@@ -42,8 +44,6 @@ except Exception as e:
     # The failed result is NOT cached.
     st.error(f"Error loading tasks: {e}")
     df = pd.DataFrame() # Ensure df is defined as an empty DataFrame on error
-
-st.toggle('Debug Mode', key='debug_mode')
 
 # Store original columns before adding 'Seleccionar'
 original_cols = list(df.columns)
