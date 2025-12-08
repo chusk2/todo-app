@@ -5,7 +5,7 @@ import pandas as pd
 from db_path import DB_PATH
 
 def read_tasks():
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn = sqlite3.connect(DB_PATH)
     try:
         # Use pandas to read the SQL query directly into a DataFrame
         tasks_df = pd.read_sql_query("SELECT * FROM tasks ORDER BY creation_date DESC", conn)

@@ -6,6 +6,9 @@ from db_path import DB_PATH
 if 'success_addition' not in st.session_state.keys():
     st.session_state['success_addition'] = False
 
+if 'data_version' not in st.session_state.keys():
+    st.session_state['data_version'] = 0
+
 def create_task(task):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -35,6 +38,7 @@ if st.button('Add task', on_click=create_task, args = (task,)):
     if st.session_state['success_addition']:
         st.success('Task successfully added to your list!')
         st.session_state['success_addition'] = False
+        st.session_state['data_version'] += 1
     sleep(1.5)
     st.rerun()
 
