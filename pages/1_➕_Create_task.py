@@ -10,7 +10,7 @@ if 'data_version' not in st.session_state.keys():
     st.session_state['data_version'] = 0
 
 def create_task(task):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     cursor = conn.cursor()
 
     try:
@@ -41,4 +41,3 @@ if st.button('Add task', on_click=create_task, args = (task,)):
         st.session_state['data_version'] += 1
     sleep(1.5)
     st.rerun()
-

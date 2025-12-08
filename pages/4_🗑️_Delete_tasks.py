@@ -14,7 +14,7 @@ def load_tasks_from_db(data_version):
     # This function will now raise an exception on failure, which is handled outside.
     conn = sqlite3.connect(DB_PATH) # Add a timeout to wait for DB lock release
     try:
-        df = pd.read_sql_query('SELECT * FROM tasks ORDER BY creation_date DESC', conn)
+        df = pd.read_sql_query('SELECT * FROM tasks ORDER BY created_date DESC', conn)
         df['completed'] = df['completed'].astype(bool)
         return df
     finally:
@@ -48,7 +48,7 @@ column_config_dict = {
         width=None,
     ),
     "task": st.column_config.TextColumn("Tarea", disabled=True, width=None),
-    "creation_date": st.column_config.TextColumn("Fecha de Creación", disabled=True, width=None),
+    "created_date": st.column_config.TextColumn("Fecha de Creación", disabled=True, width=None),
     "completed": st.column_config.CheckboxColumn("Completada", disabled=True, width=None),
     "task_id": None  # Hide the task_id column
 }
