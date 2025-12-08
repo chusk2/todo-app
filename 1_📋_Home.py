@@ -2,15 +2,19 @@
 import sqlite3
 import streamlit as st
 from db_path import DB_PATH
-# from scripts.create import create
-# from scripts.read import read
-# from scripts.delete import delete
+from debug import *
+
+# The st.toggle widget itself manages st.session_state.debug_mode
+st.toggle('Debug Mode', key='debug_mode')
+
 
 # load the database
-print(f"DEBUG: DB_PATH used in app.py: {DB_PATH}")
+add_debug_message(f"DEBUG: DB_PATH used in app.py: {DB_PATH}")
+
 conn = sqlite3.connect(DB_PATH, timeout=10)
 cursor = conn.cursor()
 
+# if database does not exist, create it
 try:
     cursor.execute('SELECT 1 FROM tasks LIMIT 1;')
 
@@ -28,7 +32,7 @@ except:
     cursor.execute(create_db_query)
     conn.commit()
 
-    print(f'Database created successfully!')
+    add_debug_message(f'Database created successfully!')
 
 finally:
     conn.close()
@@ -50,7 +54,19 @@ st.set_page_config(
 )
 
 # Título de la aplicación
-st.write(f'Run number: {st.session_state.data_version}')
-
 st.title("📋 TODO List - Homepage")
-st.write("TODO Tasks Manager")
+
+st.write("Welcome to your personal TODO Tasks Manager!")
+st.markdown("""
+This application helps you manage your daily tasks efficiently. Here's what you can do:
+
+- ➕ Use the ***Create tasks*** page to quickly create new tasks.
+- 📋 View all your tasks in a clear list on the ***Read tasks*** page.
+- 🔄 Modify existing tasks, mark them as completed, or change their descriptions on the ***Update tasks*** page.
+- 🗑️ Remove tasks you no longer need from the ***Delete tasks*** page.
+
+Stay organized and boost your productivity!
+""")
+
+# Display debug messages if debug mode is active
+show_debug_messages()

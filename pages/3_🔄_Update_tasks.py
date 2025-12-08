@@ -3,9 +3,10 @@ import streamlit as st
 import pandas as pd
 from db_path import DB_PATH
 from datetime import datetime
-from time import sleep
+from debug import *
 
-# Initialize session state variables
+
+### Initialize session state variables ###
 if 'data_version' not in st.session_state:
     st.session_state['data_version'] = 0
 
@@ -13,14 +14,7 @@ if 'data_version' not in st.session_state:
 if 'success_update_message' not in st.session_state:
     st.session_state['success_update_message'] = False
 
-# Store the count of updated tasks for the success message
-if 'updated_tasks_count' not in st.session_state:
-    st.session_state['updated_tasks_count'] = 0
-
-# Initialize a list in session state to store debug messages
-if 'debug_messages' not in st.session_state:
-    st.session_state['debug_messages'] = []
-
+### LOAD DATA ONLY IF DATA HAVE CHANGED ###
 @st.cache_data
 def load_tasks(data_version):
     """
@@ -49,13 +43,18 @@ def update_task_in_db(task_id, task_description, completed_status, completed_dat
     Updates a single task in the database.
     completed_date should be a datetime object or None.
     """
-    st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG: update_task_in_db called for task_id: {task_id}")
-    st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG:   task_description: '{task_description}', completed_status: {completed_status}, completed_date: {completed_date}")
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    # Ensure task_id is an integer for the WHERE clause, handling potential NaN from pandas
-    task_id_int = int(task_id) if not pd.isna(task_id) else None
-    st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG:   Original task_id type: {type(task_id)}, Converted task_id_int type: {type(task_id_int)}")
 
+    ### DEBUGGING MESSAGES ###
+    add_debug_message(f"DEBUG: update_task_in_db called for task_id: {task_id}")
+    add_debug_message(f"DEBUG:   task_description: '{task_description}', completed_status: {completed_status}, completed_date: {completed_date}")
+    ###
+
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+
+    # IT IS EXTREMELY IMPORTANT TO PROVIDE TASK_ID AS INTEGER (python int type)
+    # Also, handle potential NaN from pandas
+    task_id_int = int(task_id) if not pd.isna(task_id) else None
+    add_debug_message(f"DEBUG:   Original task_id type: {type(task_id)}, Converted task_id_int type: {type(task_id_int)}")
 
     cursor = conn.cursor()
     try:
@@ -73,27 +72,37 @@ def update_task_in_db(task_id, task_description, completed_status, completed_dat
         SET task = ?, completed = ?, completed_date = ?
         WHERE task_id = ?
         '''
+        
+        ### debug no task_id value
         if task_id_int is None:
-            print(f"ERROR: Cannot update task: task_id is invalid (None or NaN).")
+            add_debug_message(f"ERROR: Cannot update task: task_id is invalid (None or NaN).")
             return False
 
-        print(f"DEBUG:   Executing query: {update_query} with params: ('{task_description}', {completed_int}, '{completed_date_str}', {task_id_int})")
-        print(f"DEBUG:   Type of task_id_int: {type(task_id_int)}")
-        cursor.execute(update_query, (task_description, completed_int, completed_date_str, task_id_int))
-        print(f"DEBUG:   Rows affected by update: {cursor.rowcount}")
+        ### DEBUG BLOCK ###
+        add_debug_message(f"DEBUG:   Executing query: {update_query} with params: ('{task_description}', {completed_int}, '{completed_date_str}', {task_id_int})")
+        add_debug_message(f"DEBUG:   Type of task_id_int: {type(task_id_int)}")
+        ###
+
+        cursor.execute(update_query,
+                       (task_description, completed_int, completed_date_str, task_id_int))
+        
+        rows_affected = cursor.rowcount
+        add_debug_message(f"DEBUG:   Rows affected by update: {rows_affected}")
+    
         conn.commit()
-        print(f"DEBUG:   Commit successful for task_id: {task_id}")
+        add_debug_message(f"DEBUG:   Commit successful for task_id: {task_id}")
         return True # Indicate success
     
     except Exception as e:
-        print(f"ERROR: Error updating task {task_id}: {e}") # Print to console for debugging
+        add_debug_message(f"ERROR: Error updating task {task_id}: {e}")
         st.error(f"Error updating task {task_id}: {e}")
         return False # Indicate failure
     
     finally:
         conn.close()
 
-st.write(f'Run number: {st.session_state.data_version}')
+st.toggle('Debug Mode', key='debug_mode')
+
 st.header("📝 Update Your Tasks")
 
 # Load tasks
@@ -107,7 +116,7 @@ except Exception as e:
 if not df.empty:
     # Define column configuration for st.data_editor
     column_config_dict = {
-        #"task_id": None, # Hide task_id
+        "task_id": None, # Hide task_id
         "task": st.column_config.TextColumn("Task Description", help="Edit the task description", width="large"),
         "created_date": st.column_config.DatetimeColumn("Created On", disabled=True, format="YYYY-MM-DD HH:mm:ss"),
         "completed": st.column_config.CheckboxColumn("Completed", help="Mark as completed"),
@@ -131,14 +140,14 @@ if not df.empty:
     # st.session_state.update_data_editor will contain information about edited rows
     updates = st.session_state.update_data_editor['edited_rows']
     if st.button('Update Tasks') and updates: # Changed button label for clarity
-        st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG: --- 'Update' button clicked ---")
-        st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG: Detected updates from data_editor: {updates}")
+        add_debug_message(f"DEBUG: --- 'Update' button clicked ---")
+        add_debug_message(f"DEBUG: Detected updates from data_editor: {updates}")
         st.session_state.updated_tasks_count = 0
         
         for edited_row_index, changes in st.session_state.update_data_editor['edited_rows'].items():
             task_id = df.loc[edited_row_index, 'task_id']
-            if pd.isna(task_id):
-                st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - ERROR: task_id is NaN for edited row index {edited_row_index}. Skipping update.")
+            if pd.isna(task_id): # This check is already in update_task_in_db, but good to have here too.
+                add_debug_message(f"ERROR: task_id is NaN for edited row index {edited_row_index}. Skipping update.")
                 st.error(f"Cannot update task: task_id is missing for row {edited_row_index}.")
                 continue # Skip to next edited row
 
@@ -156,13 +165,13 @@ if not df.empty:
             if 'completed' in changes: # Only update completed_date if completed status was changed
                 new_completed_date = datetime.now() if new_completed_status else None
 
-            st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG:   Calling update_task_in_db for row {edited_row_index} (task_id: {task_id})")
-            st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG:     new_task_description: '{new_task_description}', new_completed_status: {new_completed_status}, new_completed_date: {new_completed_date}")
+            add_debug_message(f"DEBUG:   Calling update_task_in_db for row {edited_row_index} (task_id: {task_id})")
+            add_debug_message(f"DEBUG:     new_task_description: '{new_task_description}', new_completed_status: {new_completed_status}, new_completed_date: {new_completed_date}")
             if update_task_in_db(task_id, new_task_description, new_completed_status, new_completed_date):
                 st.session_state.updated_tasks_count += 1
-                st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG:   Task {task_id} successfully processed for update.")
+                add_debug_message(f"DEBUG:   Task {task_id} successfully processed for update.")
             else:
-                st.session_state['debug_messages'].append(f"{datetime.now().strftime('%H:%M:%S')} - DEBUG:   Failed to update task {task_id}.")
+                add_debug_message(f"DEBUG:   Failed to update task {task_id}.")
         
         if st.session_state.updated_tasks_count > 0:
             st.session_state.data_version += 1 # Invalidate cache to force data reload
@@ -176,3 +185,5 @@ else:
 if st.session_state['success_update_message']:
     st.success(f"Successfully updated {st.session_state.updated_tasks_count} task(s).")
     st.session_state['success_update_message'] = False # Reset for next run
+
+show_debug_messages()
