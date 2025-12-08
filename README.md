@@ -95,12 +95,11 @@ Contributions are welcome! If you have suggestions for improvements or new featu
 
 ## 📄 License
 
+This project is open source and available under the MIT License.
+
 ## 📧 Contact
 
 If you have any questions, suggestions, or just want to connect, feel free to reach out!
 
 -   **GitHub**: [@chusk2](https://github.com/chusk2)
 -   **Nickname**: danicoder
-
-This project is open source and available under the MIT License.
-```
