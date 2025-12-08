@@ -1,2 +1,15 @@
 __pycache__/
-*.db
+
+##########################
+# SQLite Database Files
+##########################
+
+# Main database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# Temporary and journal files created by SQLite
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
